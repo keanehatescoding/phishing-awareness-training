@@ -25,6 +25,9 @@ async function main() {
         })
         .returning();
     }
+    if (!company) {
+      throw new Error("Failed to create or find company");
+    }
 
     // Check if user already exists
     let [user] = await tx
@@ -44,6 +47,9 @@ async function main() {
           passwordHash: "$2b$12$placeholder_hash_for_demo_only",
         })
         .returning();
+    }
+    if (!user) {
+      throw new Error("Failed to create or find user");
     }
 
     // Check if membership already exists
@@ -90,6 +96,9 @@ async function main() {
         })
         .returning();
     }
+    if (!employee1) {
+      throw new Error("Failed to create or find employee1");
+    }
 
     let [employee2] = await tx
       .select()
@@ -113,6 +122,9 @@ async function main() {
           locale: "en-KE",
         })
         .returning();
+    }
+    if (!employee2) {
+      throw new Error("Failed to create or find employee2");
     }
 
     // Check if template already exists
@@ -138,6 +150,9 @@ async function main() {
         })
         .returning();
     }
+    if (!template) {
+      throw new Error("Failed to create or find template");
+    }
 
     // Check if campaign already exists
     let [campaign] = await tx
@@ -162,6 +177,9 @@ async function main() {
           status: "draft",
         })
         .returning();
+    }
+    if (!campaign) {
+      throw new Error("Failed to create or find campaign");
     }
 
     // Check existing sends for the campaign and employees
@@ -192,9 +210,16 @@ async function main() {
           outcome: "pending",
         })
         .returning();
+      if (!send) {
+        throw new Error("Failed to create send for employee1");
+      }
       sends.push(send);
     } else {
-      sends.push(existingSendMap.get(employee1.id));
+      const existingSend = existingSendMap.get(employee1.id);
+      if (!existingSend) {
+        throw new Error("Missing existing send for employee1");
+      }
+      sends.push(existingSend);
     }
     
     if (!existingSendMap.has(employee2.id)) {
@@ -207,9 +232,16 @@ async function main() {
           outcome: "pending",
         })
         .returning();
+      if (!send) {
+        throw new Error("Failed to create send for employee2");
+      }
       sends.push(send);
     } else {
-      sends.push(existingSendMap.get(employee2.id));
+      const existingSend = existingSendMap.get(employee2.id);
+      if (!existingSend) {
+        throw new Error("Missing existing send for employee2");
+      }
+      sends.push(existingSend);
     }
 
     // Check if lesson already exists
@@ -253,6 +285,9 @@ async function main() {
           minutes: 5,
         })
         .returning();
+    }
+    if (!lesson) {
+      throw new Error("Failed to create or find lesson");
     }
 
     // Link lessons to sends
