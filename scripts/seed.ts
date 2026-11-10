@@ -1,111 +1,232 @@
+import { and, eq, or } from "drizzle-orm";
 import { db } from "../src/db/index";
 import * as schema from "../src/db/schema";
 
 async function main() {
   console.log("Seeding database...");
 
-  // Insert example company
-  const [company] = await db
-    .insert(schema.companies)
-    .values({
-      name: "Example Bank Ltd",
-      domain: "example-bank.co.ke",
-      billingEmail: "billing@example-bank.co.ke",
-    })
-    .returning();
+  await db.transaction(async (tx) => {
+    // Check if company already exists
+    let [company] = await tx
+      .select()
+      .from(schema.companies)
+      .where(
+        eq(schema.companies.domain, "example-bank.co.ke")
+      )
+      .limit(1);
+    
+    if (!company) {
+      [company] = await tx
+        .insert(schema.companies)
+        .values({
+          name: "Example Bank Ltd",
+          domain: "example-bank.co.ke",
+          billingEmail: "billing@example-bank.co.ke",
+        })
+        .returning();
+    }
 
-  // Insert example user (admin)
-  const [user] = await db
-    .insert(schema.users)
-    .values({
-      email: "admin@example-bank.co.ke",
-      name: "Admin User",
-      passwordHash: "$2b$12$placeholder_hash_for_demo_only", // In production, use proper hashing
-    })
-    .returning();
+    // Check if user already exists
+    let [user] = await tx
+      .select()
+      .from(schema.users)
+      .where(
+        eq(schema.users.email, "admin@example-bank.co.ke")
+      )
+      .limit(1);
+    
+    if (!user) {
+      [user] = await tx
+        .insert(schema.users)
+        .values({
+          email: "admin@example-bank.co.ke",
+          name: "Admin User",
+          passwordHash: "$2b$12$placeholder_hash_for_demo_only",
+        })
+        .returning();
+    }
 
-  // Link user to company as admin
-  await db.insert(schema.memberships).values({
-    userId: user.id,
-    companyId: company.id,
-    role: "admin",
-  });
-
-  // Insert example employees
-  const [employee1, employee2] = await db
-    .insert(schema.employees)
-    .values([
-      {
+    // Check if membership already exists
+    const existingMembership = await tx
+      .select()
+      .from(schema.memberships)
+      .where(
+        and(
+          eq(schema.memberships.userId, user.id),
+          eq(schema.memberships.companyId, company.id)
+        )
+      )
+      .limit(1);
+    
+    if (existingMembership.length === 0) {
+      await tx.insert(schema.memberships).values({
+        userId: user.id,
         companyId: company.id,
-        email: "john.doe@example-bank.co.ke",
-        name: "John Doe",
-        department: "Finance",
-        locale: "en-KE",
-      },
-      {
-        companyId: company.id,
-        email: "jane.smith@example-bank.co.ke",
-        name: "Jane Smith",
-        department: "Operations",
-        locale: "en-KE",
-      },
-    ])
-    .returning();
+        role: "admin",
+      });
+    }
 
-  // Insert example phishing template (M-Pesa scam)
-  const [template] = await db
-    .insert(schema.templates)
-    .values({
-      name: "Fake M-Pesa Transaction Alert",
-      summary: "Simulates a fraudulent M-Pesa payment notification",
-      difficulty: "medium",
-      subject: "M-Pesa: KSh 50,000 received from Safaricom",
-      fromName: "M-Pesa",
-      fromAddress: "mpesa@safaricom.co.ke",
-      html: `<html><body><h2>M-Pesa Transaction Notification</h2><p>You have received KSh 50,000 from Safaricom.</p><p>Transaction ID: MPESA-123456789</p><p>Date: {{date}}</p><p>Your new balance: KSh 150,000</p><p><a href="http://example-bank.co.ke/verify?token={{trackingToken}}">Click here to verify transaction</a></p><p>This is an automated message. Do not reply.</p></body></html>`,
-      landingHtml: `<html><body><h1>Security Alert</h1><p>This was a simulated phishing test.</p><p>You clicked on a suspicious link. Please review the security training.</p></body></html>`,
-      locale: "en-KE",
-    })
-    .returning();
+    // Check if employees already exist
+    let [employee1] = await tx
+      .select()
+      .from(schema.employees)
+      .where(
+        and(
+          eq(schema.employees.companyId, company.id),
+          eq(schema.employees.email, "john.doe@example-bank.co.ke")
+        )
+      )
+      .limit(1);
+    
+    if (!employee1) {
+      [employee1] = await tx
+        .insert(schema.employees)
+        .values({
+          companyId: company.id,
+          email: "john.doe@example-bank.co.ke",
+          name: "John Doe",
+          department: "Finance",
+          locale: "en-KE",
+        })
+        .returning();
+    }
 
-  // Insert example campaign
-  const [campaign] = await db
-    .insert(schema.campaigns)
-    .values({
-      companyId: company.id,
-      templateId: template.id,
-      name: "Q4 2024 Phishing Test - M-Pesa Scam",
-      status: "draft",
-    })
-    .returning();
+    let [employee2] = await tx
+      .select()
+      .from(schema.employees)
+      .where(
+        and(
+          eq(schema.employees.companyId, company.id),
+          eq(schema.employees.email, "jane.smith@example-bank.co.ke")
+        )
+      )
+      .limit(1);
+    
+    if (!employee2) {
+      [employee2] = await tx
+        .insert(schema.employees)
+        .values({
+          companyId: company.id,
+          email: "jane.smith@example-bank.co.ke",
+          name: "Jane Smith",
+          department: "Operations",
+          locale: "en-KE",
+        })
+        .returning();
+    }
 
-  // Insert sends for the campaign
-  const sends = await db
-    .insert(schema.sends)
-    .values([
-      {
-        campaignId: campaign.id,
-        employeeId: employee1.id,
-        trackingToken: crypto.randomUUID(),
-        outcome: "pending",
-      },
-      {
-        campaignId: campaign.id,
-        employeeId: employee2.id,
-        trackingToken: crypto.randomUUID(),
-        outcome: "pending",
-      },
-    ])
-    .returning();
+    // Check if template already exists
+    let [template] = await tx
+      .select()
+      .from(schema.templates)
+      .where(eq(schema.templates.name, "Fake M-Pesa Transaction Alert"))
+      .limit(1);
+    
+    if (!template) {
+      [template] = await tx
+        .insert(schema.templates)
+        .values({
+          name: "Fake M-Pesa Transaction Alert",
+          summary: "Simulates a fraudulent M-Pesa payment notification",
+          difficulty: "medium",
+          subject: "M-Pesa: KSh 50,000 received from Safaricom",
+          fromName: "M-Pesa",
+          fromAddress: "mpesa@safaricom.co.ke",
+          html: `<html><body><h2>M-Pesa Transaction Notification</h2><p>You have received KSh 50,000 from Safaricom.</p><p>Transaction ID: MPESA-123456789</p><p>Date: {{date}}</p><p>Your new balance: KSh 150,000</p><p><a href="http://mpesa-training.co.ke/verify?token={{trackingToken}}">Click here to verify transaction</a></p><p>This is an automated message. Do not reply.</p></body></html>`,
+          landingHtml: `<html><body><h1>Security Alert</h1><p>This was a simulated phishing test.</p><p>You clicked on a suspicious link. Please review the security training.</p></body></html>`,
+          locale: "en-KE",
+        })
+        .returning();
+    }
 
-  // Insert example lessons
-  const [lesson] = await db
-    .insert(schema.lessons)
-    .values({
-      slug: "mpesa-fraud-awareness",
-      title: "Identifying M-Pesa Fraud",
-      tags: ["spoofed_domain", "urgency", "mobile_money"],
-      bodyMd: `# M-Pesa Fraud Awareness
+    // Check if campaign already exists
+    let [campaign] = await tx
+      .select()
+      .from(schema.campaigns)
+      .where(
+        and(
+          eq(schema.campaigns.companyId, company.id),
+          eq(schema.campaigns.templateId, template.id),
+          eq(schema.campaigns.name, "Q4 2024 Phishing Test - M-Pesa Scam")
+        )
+      )
+      .limit(1);
+    
+    if (!campaign) {
+      [campaign] = await tx
+        .insert(schema.campaigns)
+        .values({
+          companyId: company.id,
+          templateId: template.id,
+          name: "Q4 2024 Phishing Test - M-Pesa Scam",
+          status: "draft",
+        })
+        .returning();
+    }
+
+    // Check existing sends for the campaign and employees
+    const existingSends = await tx
+      .select()
+      .from(schema.sends)
+      .where(
+        and(
+          eq(schema.sends.campaignId, campaign.id),
+          or(
+            eq(schema.sends.employeeId, employee1.id),
+            eq(schema.sends.employeeId, employee2.id)
+          )
+        )
+      );
+    
+    const existingSendMap = new Map(existingSends.map(s => [s.employeeId, s]));
+    
+    const sends = [];
+    
+    if (!existingSendMap.has(employee1.id)) {
+      const [send] = await tx
+        .insert(schema.sends)
+        .values({
+          campaignId: campaign.id,
+          employeeId: employee1.id,
+          trackingToken: crypto.randomUUID(),
+          outcome: "pending",
+        })
+        .returning();
+      sends.push(send);
+    } else {
+      sends.push(existingSendMap.get(employee1.id));
+    }
+    
+    if (!existingSendMap.has(employee2.id)) {
+      const [send] = await tx
+        .insert(schema.sends)
+        .values({
+          campaignId: campaign.id,
+          employeeId: employee2.id,
+          trackingToken: crypto.randomUUID(),
+          outcome: "pending",
+        })
+        .returning();
+      sends.push(send);
+    } else {
+      sends.push(existingSendMap.get(employee2.id));
+    }
+
+    // Check if lesson already exists
+    let [lesson] = await tx
+      .select()
+      .from(schema.lessons)
+      .where(eq(schema.lessons.slug, "mpesa-fraud-awareness"))
+      .limit(1);
+    
+    if (!lesson) {
+      [lesson] = await tx
+        .insert(schema.lessons)
+        .values({
+          slug: "mpesa-fraud-awareness",
+          title: "Identifying M-Pesa Fraud",
+          tags: ["spoofed_domain", "urgency", "mobile_money"],
+          bodyMd: `# M-Pesa Fraud Awareness
 
 ## Common M-Pesa Scams
 
@@ -129,26 +250,41 @@ async function main() {
 - Check the sender's phone number carefully
 - Report suspicious messages immediately
 `,
-      minutes: 5,
-    })
-    .returning();
+          minutes: 5,
+        })
+        .returning();
+    }
 
-  // Link lessons to sends
-  for (const send of sends) {
-    await db.insert(schema.lessonAssignments).values({
-      sendId: send.id,
-      lessonId: lesson.id,
-    });
-  }
+    // Link lessons to sends
+    for (const send of sends) {
+      const existingAssignment = await tx
+        .select()
+        .from(schema.lessonAssignments)
+        .where(
+          and(
+            eq(schema.lessonAssignments.sendId, send.id),
+            eq(schema.lessonAssignments.lessonId, lesson.id)
+          )
+        )
+        .limit(1);
+      
+      if (existingAssignment.length === 0) {
+        await tx.insert(schema.lessonAssignments).values({
+          sendId: send.id,
+          lessonId: lesson.id,
+        });
+      }
+    }
 
-  console.log("Seeding complete!");
-  console.log(`- Company: ${company.name}`);
-  console.log(`- Users: 1 (${user.email})`);
-  console.log(`- Employees: 2`);
-  console.log(`- Templates: 1 (${template.name})`);
-  console.log(`- Campaigns: 1 (${campaign.name})`);
-  console.log(`- Sends: ${sends.length}`);
-  console.log(`- Lessons: 1 (${lesson.title})`);
+    console.log("Seeding complete!");
+    console.log(`- Company: ${company.name}`);
+    console.log(`- Users: 1 (${user.email})`);
+    console.log(`- Employees: 2`);
+    console.log(`- Templates: 1 (${template.name})`);
+    console.log(`- Campaigns: 1 (${campaign.name})`);
+    console.log(`- Sends: ${sends.length}`);
+    console.log(`- Lessons: 1 (${lesson.title})`);
+  });
 }
 
 main().catch((err) => {
