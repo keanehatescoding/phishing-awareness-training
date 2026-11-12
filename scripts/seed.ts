@@ -1,4 +1,4 @@
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { db } from "../src/db/index";
 import * as schema from "../src/db/schema";
 
@@ -34,7 +34,7 @@ async function main() {
       .select()
       .from(schema.users)
       .where(
-        eq(schema.users.email, "admin@example-bank.co.ke")
+        sql`lower(${schema.users.email}) = ${"admin@example-bank.co.ke"}`
       )
       .limit(1);
     
@@ -79,7 +79,7 @@ async function main() {
       .where(
         and(
           eq(schema.employees.companyId, company.id),
-          eq(schema.employees.email, "john.doe@example-bank.co.ke")
+          sql`lower(${schema.employees.email}) = ${"john.doe@example-bank.co.ke"}`
         )
       )
       .limit(1);
@@ -106,7 +106,7 @@ async function main() {
       .where(
         and(
           eq(schema.employees.companyId, company.id),
-          eq(schema.employees.email, "jane.smith@example-bank.co.ke")
+          sql`lower(${schema.employees.email}) = ${"jane.smith@example-bank.co.ke"}`
         )
       )
       .limit(1);
