@@ -1,11 +1,16 @@
 import { and, eq, or, sql } from "drizzle-orm";
-import { db } from "../src/db/index";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import * as schema from "../src/db/schema";
 
 async function main() {
-  console.log("Seeding database...");
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
+  const db = drizzle({ client: pool, schema });
 
-  await db.transaction(async (tx) => {
+  try {
+    console.log("Seeding database...");
+
+    await db.transaction(async (tx) => {
     // Check if company already exists
     let [company] = await tx
       .select()
@@ -320,6 +325,9 @@ async function main() {
     console.log(`- Sends: ${sends.length}`);
     console.log(`- Lessons: 1 (${lesson.title})`);
   });
+  } finally {
+    await pool.end();
+  }
 }
 
 main().catch((err) => {
