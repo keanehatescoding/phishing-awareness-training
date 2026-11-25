@@ -4,7 +4,7 @@ import { Pool } from "pg";
 import path from "path";
 
 async function main() {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
+  const pool = new Pool({ connectionTimeoutMillis: 5_000, connectionString: process.env.DATABASE_URL, max: 1  });
   const db = drizzle({ client: pool });
 
   const migrationsFolder = path.resolve(process.cwd(), "./drizzle");
