@@ -4,7 +4,7 @@ import { Pool } from "pg";
 import * as schema from "../src/db/schema";
 
 async function main() {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1, connectionTimeoutMillis: 5_000 });
   const db = drizzle({ client: pool, schema });
 
   try {
